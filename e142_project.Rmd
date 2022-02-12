@@ -1,0 +1,111 @@
+---
+title: "e142 project"
+author: "Justin Chow"
+date: "5/17/2021"
+output: html_document
+---
+
+Tasks
+1. Find s.d. of salary - s.d. of team salaries
+3. Measure of inequality - avgAST and sdPER (team value)
+4. Control for total salary - salary cap for each team
+5. Control for conference - west and east
+6. Construct for years - 2016 to 2020 season
+7. Find effect of salary on winning 
+
+
+Evaluating NBA Team Performances with respect to Team's Salaries 
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir="C:/Users/14087/Documents/SCU_Spring2021/Econ 142/Project/nba")
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+
+```
+
+```{r setting, echo=FALSE, message=FALSE}
+#Add a function to calculate corrected standard errors:
+cse=function(reg) {
+  rob=sqrt(diag(vcovHC(reg, type="HC1")))
+  return(rob)
+}
+
+### Load the packages (all must have been installed)
+library(doBy)
+library(dplyr)
+library(foreign)
+library(knitr)
+library(highcharter)
+library(lmtest)
+library(readstata13)
+library(sandwich)
+library(stargazer)
+library(AER)
+library(gdata)
+library(tidyverse)
+library(tibble)
+library(ggplot2)
+library(ggpubr)
+library(readxl)
+library(remotes)
+
+```
+
+
+```{r team stat, echo=TRUE, warning=FALSE, message=FALSE}
+# use read_xl to load datasets 
+nba_2016<-read_excel("nba_2016.xlsx")
+nba_2017<-read_excel("nba_2017.xlsx")
+nba_2018<-read_excel("nba_2018.xlsx")
+nba_2019<-read_excel("nba_2019.xlsx")
+nba_2020<-read_excel("nba_2020.xlsx")
+nba<-rbind(nba_2016, nba_2017, nba_2018, nba_2019, nba_2020)
+
+```
+
+
+Descriptive Statistics Table
+
+```{r data, echo=FALSE, warning=FALSE, message=FALSE}
+nba$sdSalaries<-nba$sdSalaries/1000000
+#Use stargazer to create a table of descriptive statistics
+stargazer(as.data.frame(nba[c("win_percentage", "sdSalaries", "sdPER", "AST")]), 
+          type="text", median=TRUE, digit=3, title="Descriptive Statistics")
+
+```
+
+
+Graphics
+
+```{r plot, echo=FALSE, warning=FALSE, message=FALSE}
+#Using ggplot, find whether there is a relationship between win_percentage and value of 2020 contracts.
+ggplot(nba, aes(x=conference, y=win_percentage)) + 
+  labs(title = "Win Percentage against NBA Conferences", x = "NBA Conference", y = "Win Percentage")+
+  geom_boxplot(outlier.colour="red", outlier.shape=8, outlier.size=4)
+
+```
+
+
+```{r plot2, echo=FALSE, warning=FALSE, message=FALSE}
+#Using ggplot, find whether there is a relationship between winning percentage and s.d. of team salaries.
+ggplot(nba, aes(x=sdSalaries, y=win_percentage)) + geom_point(col="blue") + 
+  labs(x = "s.d. of Team salaries", y = "Win percentage") +
+  stat_smooth(method = "lm", col = "red") + 
+  stat_regline_equation(label.x=12, label.y=.8) + 
+  stat_cor(aes(label=..rr.label..), label.x=12, label.y=.75)
+
+```
+
+
+Regression Table
+
+```{r reg, cho=TRUE, warning=FALSE, message=FALSE}
+# log for s.d. of team salaries and team payroll
+nba$sdSalaries<-nba$sdSalaries/1000000
+nba$LNsdSalaries<-log(nba$sdSalaries)
+# regress winning percentage and log for s.d. of team salaries along with control variables.
+reg1<-lm(win_percentage~LNsdSalaries+conference, data=nba)
+reg2<-lm(win_percentage~LNsdSalaries+conference+sdPER+AST, data=nba)
+stargazer(reg1, reg2, type="text", se=list(cse(reg1), cse(reg2)), df=FALSE, digits=3)
+
+```
+
